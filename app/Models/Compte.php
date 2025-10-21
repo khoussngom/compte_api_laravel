@@ -33,6 +33,20 @@ class Compte extends Model
                 $model->{$model->getKeyName()} = (string) \Illuminate\Support\Str::uuid();
             }
         });
+
+        // auto-generate numero_compte if not provided
+        static::creating(function ($model) {
+            if (empty($model->numero_compte)) {
+                // generate an account number ACC + 8 digits
+                $model->numero_compte = 'ACC' . sprintf('%08d', random_int(0, 99999999));
+            }
+            if (empty($model->date_creation)) {
+                $model->date_creation = now()->toDateString();
+            }
+            if (!isset($model->statut_compte)) {
+                $model->statut_compte = 'Actif';
+            }
+        });
     }
 
     public function client()
