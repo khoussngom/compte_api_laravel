@@ -58,6 +58,51 @@ class CompteController extends Controller
         return $this->success(new CompteResource($compte));
     }
 
+    /**
+     * Update client information for a specific compte (Admin only)
+     */
+    public function update(Request $request, Compte $compte)
+    {
+        // ensure user is admin
+        $user = $request->user();
+        if (!$user || ($user->role ?? null) !== 'Admin') {
+            return response()->json(['success' => false, 'error' => ['code' => 'FORBIDDEN', 'message' => 'Accès refusé']], 403);
+        }
+
+        $req = app(\App\Http\Requests\UpdateClientRequest::class);
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), $req->rules());
+        $req->withValidator($validator);
+        if ($validator->fails()) {
+            return response()->json(['success' => false, 'error' => ['code' => 'VALIDATION_ERROR', 'message' => 'Les données fournies sont invalides', 'details' => $validator->errors()->messages()]], 400);
+        }
+
+        $data = $request->all();
+
+        $client = $compte->client;
+        if (!$client) {
+            return response()->json(['success' => false, 'error' => ['code' => 'COMPTE_NOT_FOUND', 'message' => 'Client du compte introuvable']], 404);
+        }
+
+        // Update titulaire
+        if (isset($data['titulaire'])) {
+            $client->titulaire = $data['titulaire'];
+        }
+
+        if (!empty($data['informationsClient']) && is_array($data['informationsClient'])) {
+            $info = $data['informationsClient'];
+            if (isset($info['telephone'])) $client->telephone = $info['telephone'];
+            if (isset($info['email'])) $client->email = $info['email'];
+            if (isset($info['password'])) $client->mot_de_passe = bcrypt($info['password']);
+            if (isset($info['nci'])) $client->nci = $info['nci'];
+        }
+
+        $client->version = ($client->version ?? 1) + 1;
+        $client->save();
+
+        // return updated compte resource
+        return $this->success(new CompteResource($compte), 'Compte mis à jour avec succès', 201);
+    }
+
     public function store(CreateCompteRequest $request)
     {
         $payload = $request->validated();

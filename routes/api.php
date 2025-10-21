@@ -25,4 +25,5 @@ Route::prefix('v1')->middleware('auth:api')->group(function () {
     // use implicit model binding for Compte (compte)
     Route::get('/comptes/{compte}', [CompteController::class, 'show'])->middleware('ensure.compte.access');
     Route::post('/comptes', [CompteController::class, 'store']);
+    Route::patch('/comptes/{compte}', [CompteController::class, 'update'])->middleware('ensure.compte.access');
 });

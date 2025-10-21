@@ -22,6 +22,7 @@ class Client extends Model
         'id',
         'nom',
         'prenom',
+        'titulaire',
         'email',
         'mot_de_passe',
         'nci',
@@ -30,6 +31,8 @@ class Client extends Model
         'telephone',
         'adresse',
         'role',
+        'statut',
+        'version',
     ];
 
     protected $hidden = [

@@ -303,3 +303,36 @@ curl -X POST 'http://localhost/api/v1/comptes' \
 
 Note : l'envoi d'email utilise le driver défini dans `config/mail.php`. L'envoi SMS est simulé via les logs (`storage/logs/laravel.log`).
 
+## Nouvelle route : PATCH /api/v1/comptes/{compteId} (mettre à jour les informations du client)
+
+Permet à un Admin de mettre à jour les informations liées au client d'un compte spécifique. Tous les champs sont optionnels mais au moins un doit être fourni.
+
+Headers :
+- Authorization: Bearer {token}
+- Accept: application/json
+- Content-Type: application/json
+
+Exemple de payload :
+
+```json
+{
+  "titulaire": "Amadou Diallo Junior",
+  "informationsClient": {
+    "telephone": "+221771234568",
+    "email": "amadou.junior@example.com",
+    "password": "newpassword",
+    "nci": "1234567890123"
+  }
+}
+```
+
+Règles de validation (implémentées dans `app/Http/Requests/UpdateClientRequest.php`) :
+- Tous les champs sont optionnels mais au moins un doit être fourni.
+- `telephone` : unique et valide (ValidPhone).
+- `email` : unique et valide.
+- `password` : min 8 caractères si fourni.
+- `nci` : valide (ValidNCI) et unique.
+
+Réponse (succès 201) : renvoie la représentation du compte après mise à jour (via `CompteResource`).
+
+
