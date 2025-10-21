@@ -20,8 +20,11 @@ class Compte extends Model
         'titulaire_compte',
         'type_compte',
         'solde',
+        'devise',
         'date_creation',
         'statut_compte',
+        'motif_blocage',
+        'version',
         'client_id',
     ];
 

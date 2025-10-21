@@ -19,8 +19,10 @@ class CompteFactory extends Factory
             'titulaire_compte' => fake()->name(),
             'type_compte' => fake()->randomElement(['Epargne', 'Cheque']),
             'solde' => fake()->randomFloat(2, 0, 10000),
+            'devise' => 'FCFA',
             'date_creation' => now()->toDateString(),
             'statut_compte' => 'Actif',
+            'motif_blocage' => null,
             'client_id' => Client::factory(),
         ];
     }
