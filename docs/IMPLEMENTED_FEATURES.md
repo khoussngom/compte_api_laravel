@@ -204,3 +204,102 @@ Si vous voulez, je peux :
 - ajouter les endpoints CRUD restants (update/delete) et les policies.
 
 Dites-moi ce que vous voulez que je fasse ensuite et je le fais maintenant.
+
+
+## Nouvelle route : POST /api/v1/comptes (création d'un compte & client)
+
+Cette route crée un compte bancaire et, si nécessaire, crée le client associé.
+
+Base URL : POST /api/v1/comptes
+
+Headers :
+- Authorization: Bearer {token}
+- Accept: application/json
+- Content-Type: application/json
+
+Payload attendu :
+
+```json
+{
+  "type": "cheque",
+  "soldeInitial": 500000,
+  "devise": "FCFA",
+  "solde": 10000,
+  "client": {
+    "id": null,
+    "titulaire": "Hawa BB Wane",
+    "nci": "",
+    "email": "cheikh.sy@example.com",
+    "telephone": "+221771234567",
+    "adresse": "Dakar, Sénégal"
+  }
+}
+```
+
+Règles de validation (implémentées dans `app/Http/Requests/CreateCompteRequest.php`) :
+- Tous les champs requis.
+- `soldeInitial` >= 10000.
+- `email` unique dans `clients`.
+- `telephone` unique et valide (règle `ValidPhone`).
+- `nci` unique et valide (règle `ValidNCI`).
+
+Comportement :
+- Si le client (par `id`, `email` ou `telephone`) existe : on l'utilise.
+- Sinon : création du client, génération d'un mot de passe aléatoire (10 chars) et d'un code de sécurité (6 digits). Le mot de passe est envoyé par email (Mailable `NewClientCredentials`) et le code est envoyé par SMS simulé (Notification `SmsClientCode` qui logue).
+- Le compte est ensuite créé avec `numero_compte` généré automatiquement (voir modèle `Compte`).
+- Le client est marqué pour exiger le code à chaque connexion (`require_code_on_login = true`).
+
+Réponse (succès 201) :
+
+```json
+{
+  "success": true,
+  "message": "Compte créé avec succès",
+  "data": {
+    "id": "660f9511-f30c-52e5-b827-557766551111",
+    "numeroCompte": "C00123460",
+    "titulaire": "Cheikh Sy",
+    "type": "cheque",
+    "solde": 500000,
+    "devise": "FCFA",
+    "dateCreation": "2025-10-19T10:30:00Z",
+    "statut": "actif",
+    "metadata": {
+      "derniereModification": "2025-10-19T10:30:00Z",
+      "version": 1
+    }
+  }
+}
+```
+
+Réponse (erreur validation 400) :
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Les données fournies sont invalides",
+    "details": {
+      "titulaire": "Le nom du titulaire est requis",
+      "soldeInitial": "Le solde initial doit être supérieur à 0"
+    }
+  }
+}
+```
+
+Tests & vérifications :
+
+- Lancer migrations : `php artisan migrate`
+- Lancer la route (exemple curl) :
+
+```bash
+curl -X POST 'http://localhost/api/v1/comptes' \
+  -H 'Authorization: Bearer {token}' \
+  -H 'Accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"type":"cheque","soldeInitial":50000,"devise":"FCFA","solde":50000,"client":{"id":null,"titulaire":"Test T","nci":"1234567890123","email":"test+1@example.com","telephone":"+221771234567","adresse":"Dakar"}}'
+```
+
+Note : l'envoi d'email utilise le driver défini dans `config/mail.php`. L'envoi SMS est simulé via les logs (`storage/logs/laravel.log`).
+

@@ -22,6 +22,7 @@ use App\Http\Controllers\API\V1\CompteController;
 
 Route::prefix('v1')->middleware('auth:api')->group(function () {
     Route::get('/comptes', [CompteController::class, 'index']);
-    Route::get('/comptes/{id}', [CompteController::class, 'show'])->middleware('load.model:App\\Models\\Compte,id');
+    // use implicit model binding for Compte (compte)
+    Route::get('/comptes/{compte}', [CompteController::class, 'show'])->middleware('ensure.compte.access');
     Route::post('/comptes', [CompteController::class, 'store']);
 });

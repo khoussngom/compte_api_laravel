@@ -6,10 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 use App\Models\Compte;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 
 class Client extends Model
 {
     use HasFactory;
+    use Notifiable;
 
     public $incrementing = false;
     protected $keyType = 'string';
@@ -21,6 +24,9 @@ class Client extends Model
         'prenom',
         'email',
         'mot_de_passe',
+        'nci',
+        'security_code',
+        'require_code_on_login',
         'telephone',
         'adresse',
         'role',
@@ -28,6 +34,7 @@ class Client extends Model
 
     protected $hidden = [
         'mot_de_passe',
+        'security_code',
     ];
 
     protected static function booted()

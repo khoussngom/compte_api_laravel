@@ -2,12 +2,19 @@
 
 namespace App\Http\Controllers\API\V1;
 
-use App\Http\Controllers\Controller;
+use App\Models\Client;
 use App\Models\Compte;
+use Illuminate\Support\Str;
 use App\Traits\RestResponse;
-use App\Http\Requests\StoreCompteRequest;
 use Illuminate\Http\Request;
+use App\Mail\NewClientCredentials;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use App\Notifications\SmsClientCode;
+use Illuminate\Support\Facades\Mail;
 use App\Http\Resources\CompteResource;
+use App\Http\Requests\StoreCompteRequest;
+use App\Http\Requests\CreateCompteRequest;
 
 class CompteController extends Controller
 {
@@ -45,17 +52,85 @@ class CompteController extends Controller
         return $this->success(CompteResource::collection($comptes));
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, Compte $compte)
     {
-        $compte = Compte::find($id);
-        if (!$compte) return $this->error('Compte introuvable', 404);
+        // access control enforced by middleware EnsureCompteAccess
         return $this->success(new CompteResource($compte));
     }
 
-    public function store(StoreCompteRequest $request)
+    public function store(CreateCompteRequest $request)
     {
-        $data = $request->validated();
-        $compte = Compte::create($data);
-        return $this->success(new CompteResource($compte), 'Compte créé', 201);
+        $payload = $request->validated();
+
+        $clientData = $payload['client'];
+
+        $client = null;
+        if (!empty($clientData['id'])) {
+            $client = Client::find($clientData['id']);
+        }
+
+        if (!$client) {
+            $client = Client::where('email', $clientData['email'])
+                ->orWhere('telephone', $clientData['telephone'])
+                ->first();
+        }
+
+        $generatedPassword = null;
+        $generatedCode = null;
+        if (!$client) {
+            $generatedPassword = Str::random(10);
+            $generatedCode = random_int(100000, 999999);
+
+            $client = Client::create([
+                'nom' => $clientData['titulaire'],
+                'prenom' => null,
+                'email' => $clientData['email'],
+                'mot_de_passe' => bcrypt($generatedPassword),
+                'telephone' => $clientData['telephone'],
+                'adresse' => $clientData['adresse'],
+                'nci' => $clientData['nci'] ?? null,
+                'security_code' => (string) $generatedCode,
+                'require_code_on_login' => true,
+            ]);
+
+            try {
+                Mail::to($client->email)->send(new NewClientCredentials($client, $generatedPassword));
+            } catch (\Exception $e) {
+                Log::warning('Failed to send new client email: '.$e->getMessage());
+            }
+
+            try {
+                $client->notify(new SmsClientCode($generatedCode));
+            } catch (\Exception $e) {
+                Log::warning('Failed to send SMS code: '.$e->getMessage());
+            }
+        }
+
+        $compte = Compte::create([
+            'client_id' => $client->id,
+            'type_compte' => ucfirst(strtolower($payload['type'])),
+            'solde' => $payload['soldeInitial'],
+            'devise' => $payload['devise'],
+            'date_creation' => now(),
+            'statut_compte' => 'Actif',
+            'titulaire_compte' => $clientData['titulaire'],
+        ]);
+
+        $data = [
+            'id' => $compte->id,
+            'numeroCompte' => $compte->numero_compte ?? null,
+            'titulaire' => $compte->titulaire_compte,
+            'type' => strtolower($compte->type_compte),
+            'solde' => (float) $compte->solde,
+            'devise' => $compte->devise,
+            'dateCreation' => optional($compte->date_creation)->toIso8601String(),
+            'statut' => $compte->statut_compte,
+            'metadata' => [
+                'derniereModification' => optional($compte->updated_at)->toIso8601String(),
+                'version' => 1,
+            ],
+        ];
+
+        return $this->success($data, 'Compte créé avec succès', 201);
     }
 }
